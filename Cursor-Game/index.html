@@ -44,7 +44,7 @@
         <h1>Mario-Style Platformer</h1>
         <canvas id="gameCanvas" width="800" height="400"></canvas>
         <div class="instructions">
-            <p>Use Arrow Keys to move left/right, Spacebar or Up Arrow to jump</p>
+            <p>Use Arrow Keys to move left/right, Spacebar or Up Arrow to jump (double jump available!)</p>
         </div>
     </div>
 
@@ -72,59 +72,157 @@
             speed: 5,
             jumpPower: 12,
             onGround: false,
+            canDoubleJump: false,
+            hasDoubleJumped: false,
             color: '#FF0000'
         };
 
-        // Platforms array
+        // Platforms array (including moving platforms)
         const platforms = [{
                 x: 0,
                 y: 350,
                 width: 800,
                 height: 50,
-                color: '#228B22'
+                color: '#228B22',
+                type: 'static'
             }, // Ground
             {
                 x: 200,
                 y: 250,
                 width: 150,
                 height: 20,
-                color: '#228B22'
+                color: '#228B22',
+                type: 'static'
             }, // Platform 1
             {
                 x: 450,
                 y: 200,
                 width: 150,
                 height: 20,
-                color: '#228B22'
+                color: '#228B22',
+                type: 'static'
             }, // Platform 2
             {
                 x: 100,
                 y: 150,
                 width: 150,
                 height: 20,
-                color: '#228B22'
+                color: '#228B22',
+                type: 'static'
             }, // Platform 3
             {
                 x: 550,
                 y: 100,
                 width: 150,
                 height: 20,
-                color: '#228B22'
-            } // Platform 4
+                color: '#228B22',
+                type: 'static'
+            }, // Platform 4
+
+            // Moving platforms
+            {
+                x: 300,
+                y: 300,
+                width: 100,
+                height: 20,
+                color: '#FF6B35',
+                type: 'horizontal',
+                startX: 300,
+                endX: 500,
+                speed: 1,
+                direction: 1
+            }, {
+                x: 600,
+                y: 180,
+                width: 100,
+                height: 20,
+                color: '#FF6B35',
+                type: 'vertical',
+                startY: 180,
+                endY: 280,
+                speed: 0.8,
+                direction: 1
+            }
         ];
+
+        // Enemies array
+        const enemies = [{
+            x: 300,
+            y: 320,
+            width: 25,
+            height: 25,
+            velocityX: -1,
+            speed: 1,
+            color: '#8B0000',
+            startX: 200,
+            endX: 400,
+            direction: -1
+        }, {
+            x: 500,
+            y: 320,
+            width: 25,
+            height: 25,
+            velocityX: 1,
+            speed: 1,
+            color: '#8B0000',
+            startX: 450,
+            endX: 650,
+            direction: 1
+        }];
+
+        // Particle system
+        const particles = [];
 
         // Input handling
         const keys = {};
 
         document.addEventListener('keydown', (e) => {
-            console.log('keydown:', e.code); // Debug log
             keys[e.code] = true;
         });
 
         document.addEventListener('keyup', (e) => {
             keys[e.code] = false;
-            console.log(e.code)
         });
+
+        // Particle functions
+        function createParticle(x, y, type) {
+            const particle = {
+                x: x,
+                y: y,
+                velocityX: (Math.random() - 0.5) * 4,
+                velocityY: (Math.random() - 0.5) * 4 - 2,
+                life: 30,
+                maxLife: 30,
+                size: Math.random() * 3 + 1,
+                color: type === 'jump' ? '#FFFF00' : '#8B4513',
+                type: type
+            };
+            particles.push(particle);
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                particle.x += particle.velocityX;
+                particle.y += particle.velocityY;
+                particle.velocityY += 0.1; // Gravity
+                particle.life--;
+
+                if (particle.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(particle => {
+                const alpha = particle.life / particle.maxLife;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = particle.color;
+                ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
+            });
+            ctx.globalAlpha = 1.0;
+        }
 
         // Collision detection
         function checkCollision(rect1, rect2) {
@@ -132,6 +230,36 @@
                 rect1.x + rect1.width > rect2.x &&
                 rect1.y < rect2.y + rect2.height &&
                 rect1.y + rect1.height > rect2.y;
+        }
+
+        // Update moving platforms
+        function updateMovingPlatforms() {
+            platforms.forEach(platform => {
+                if (platform.type === 'horizontal') {
+                    platform.x += platform.speed * platform.direction;
+                    if (platform.x <= platform.startX || platform.x >= platform.endX) {
+                        platform.direction *= -1;
+                    }
+                } else if (platform.type === 'vertical') {
+                    platform.y += platform.speed * platform.direction;
+                    if (platform.y <= platform.startY || platform.y >= platform.endY) {
+                        platform.direction *= -1;
+                    }
+                }
+            });
+        }
+
+        // Update enemies
+        function updateEnemies() {
+            enemies.forEach(enemy => {
+                enemy.x += enemy.velocityX;
+
+                // Turn around at boundaries
+                if (enemy.x <= enemy.startX || enemy.x >= enemy.endX) {
+                    enemy.velocityX *= -1;
+                    enemy.direction *= -1;
+                }
+            });
         }
 
         // Handle player movement
@@ -145,11 +273,28 @@
                 player.velocityX *= game.friction;
             }
 
-            // Jumping
-            if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.onGround) {
-                player.velocityY = -player.jumpPower;
-                player.onGround = false;
-                console.log('jumping')
+            // Jumping with double jump
+            if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) {
+                if (player.onGround) {
+                    // First jump
+                    player.velocityY = -player.jumpPower;
+                    player.onGround = false;
+                    player.canDoubleJump = true;
+                    player.hasDoubleJumped = false;
+                    createParticle(player.x + player.width / 2, player.y + player.height, 'jump');
+                } else if (player.canDoubleJump && !player.hasDoubleJumped) {
+                    // Double jump
+                    player.velocityY = -player.jumpPower * 0.8;
+                    player.hasDoubleJumped = true;
+                    player.canDoubleJump = false;
+                    createParticle(player.x + player.width / 2, player.y + player.height, 'jump');
+                }
+            }
+
+            // Reset double jump when landing
+            if (player.onGround) {
+                player.canDoubleJump = false;
+                player.hasDoubleJumped = false;
             }
 
             // Apply gravity
@@ -167,10 +312,11 @@
         // Handle collisions
         function handleCollisions() {
             player.onGround = false;
-            const tolerance = 2; // Allow a small tolerance for landing
+            const tolerance = 2;
+
+            // Platform collisions
             for (let platform of platforms) {
                 if (checkCollision(player, platform)) {
-                    // Determine collision direction
                     const overlapX = Math.min(player.x + player.width - platform.x, platform.x + platform.width - player.x);
                     const overlapY = Math.min(player.y + player.height - platform.y, platform.y + platform.height - player.y);
 
@@ -188,14 +334,43 @@
                             // Landing on top of platform
                             player.y = platform.y - player.height;
                             player.velocityY = 0;
-                            // If very close to the platform, consider onGround
                             if (Math.abs(player.y + player.height - platform.y) <= tolerance) {
                                 player.onGround = true;
+                                // Create landing particles
+                                for (let i = 0; i < 5; i++) {
+                                    createParticle(player.x + Math.random() * player.width, player.y + player.height, 'land');
+                                }
                             }
                         } else {
                             player.y = platform.y + platform.height;
                             player.velocityY = 0;
                         }
+                    }
+                }
+            }
+
+            // Enemy collisions
+            for (let enemy of enemies) {
+                if (checkCollision(player, enemy)) {
+                    // Check if player is landing on enemy (stomping)
+                    if (player.velocityY > 0 && player.y < enemy.y) {
+                        // Stomp the enemy
+                        const enemyIndex = enemies.indexOf(enemy);
+                        if (enemyIndex > -1) {
+                            enemies.splice(enemyIndex, 1);
+                            // Bounce the player
+                            player.velocityY = -player.jumpPower * 0.6;
+                            // Create stomp particles
+                            for (let i = 0; i < 8; i++) {
+                                createParticle(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 'land');
+                            }
+                        }
+                    } else {
+                        // Player gets hit - simple reset for now
+                        player.x = 50;
+                        player.y = 320;
+                        player.velocityX = 0;
+                        player.velocityY = 0;
                     }
                 }
             }
@@ -215,6 +390,14 @@
             ctx.fillStyle = '#000000';
             ctx.fillRect(player.x + 6, player.y + 6, 3, 3);
             ctx.fillRect(player.x + 21, player.y + 6, 3, 3);
+
+            // Draw double jump indicator
+            if (player.canDoubleJump && !player.hasDoubleJumped) {
+                ctx.fillStyle = '#FFFF00';
+                ctx.globalAlpha = 0.7;
+                ctx.fillRect(player.x - 5, player.y - 10, player.width + 10, 5);
+                ctx.globalAlpha = 1.0;
+            }
         }
 
         function drawPlatforms() {
@@ -222,10 +405,27 @@
                 ctx.fillStyle = platform.color;
                 ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
 
-                // Add some texture to platforms
-                ctx.fillStyle = '#32CD32';
+                // Add texture
+                ctx.fillStyle = platform.type === 'static' ? '#32CD32' : '#FF4500';
                 ctx.fillRect(platform.x + 5, platform.y + 5, platform.width - 10, 5);
             }
+        }
+
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                // Draw enemy eyes
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(enemy.x + 5, enemy.y + 5, 4, 4);
+                ctx.fillRect(enemy.x + 16, enemy.y + 5, 4, 4);
+
+                // Draw enemy pupils
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(enemy.x + 6, enemy.y + 6, 2, 2);
+                ctx.fillRect(enemy.x + 17, enemy.y + 6, 2, 2);
+            });
         }
 
         function drawBackground() {
@@ -236,7 +436,7 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, game.width, game.height);
 
-            // Draw some clouds
+            // Draw clouds
             ctx.fillStyle = '#FFFFFF';
             ctx.globalAlpha = 0.7;
             ctx.beginPath();
@@ -263,12 +463,17 @@
             drawBackground();
 
             // Update game logic
+            updateMovingPlatforms();
+            updateEnemies();
             handlePlayerMovement();
             handleCollisions();
+            updateParticles();
 
             // Draw game objects
             drawPlatforms();
+            drawEnemies();
             drawPlayer();
+            drawParticles();
 
             // Continue game loop
             requestAnimationFrame(gameLoop);
