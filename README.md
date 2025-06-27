@@ -30,4 +30,5 @@ Enemies have simple facial features
 Particle effects add visual feedback
 Double jump indicator shows when you can double jump
 The game now feels much more dynamic and engaging! Try jumping around, stomping enemies, and riding the moving platforms. The particle effects make every action feel satisfying and responsive.
-Would you like me to add any other features or make adjustments to the current ones?
+
+Addede background arcade music
