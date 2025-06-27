@@ -32,3 +32,14 @@ Double jump indicator shows when you can double jump
 The game now feels much more dynamic and engaging! Try jumping around, stomping enemies, and riding the moving platforms. The particle effects make every action feel satisfying and responsive.
 
 Addede background arcade music
+
+Kill the first wave of enemies
+3-second countdown will appear
+New wave spawns with different enemy types
+Game continues without any crashes
+The enemy spawning system should now work correctly, and you'll see:
+✅ Wave counter increasing
+✅ Countdown timer when no enemies are present
+✅ New enemies spawning after the delay
+✅ Different enemy types (ground, flying, fast)
+✅ Progressive difficulty
