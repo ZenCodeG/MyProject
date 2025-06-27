@@ -1,0 +1,12 @@
+Create a simple browser-based Mario-style platformer game using HTML5 Canvas and JavaScript. It should include:
+
+- A red square player that can move left and right with arrow keys
+- Jumping when pressing the spacebar or up arrow
+- Simple gravity and jumping physics
+- Basic platform collision detection
+- A few green platforms placed at different heights
+- A game loop using requestAnimationFrame
+- All code in a single HTML file (no external libraries)
+- Use the canvas to draw the game
+
+Make the canvas 800x400, and center it on the page with a sky-blue background.

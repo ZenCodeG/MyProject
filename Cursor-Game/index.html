@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mario-Style Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #87CEEB;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            background-color: #87CEEB;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            color: #333;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameContainer">
+        <h1>Mario-Style Platformer</h1>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div class="instructions">
+            <p>Use Arrow Keys to move left/right, Spacebar or Up Arrow to jump</p>
+        </div>
+    </div>
+
+    <script>
+        // Game canvas and context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state
+        const game = {
+            width: 800,
+            height: 400,
+            gravity: 0.5,
+            friction: 0.8
+        };
+
+        // Player object
+        const player = {
+            x: 50,
+            y: 320,
+            width: 30,
+            height: 30,
+            velocityX: 0,
+            velocityY: 0,
+            speed: 5,
+            jumpPower: 12,
+            onGround: false,
+            color: '#FF0000'
+        };
+
+        // Platforms array
+        const platforms = [{
+                x: 0,
+                y: 350,
+                width: 800,
+                height: 50,
+                color: '#228B22'
+            }, // Ground
+            {
+                x: 200,
+                y: 250,
+                width: 150,
+                height: 20,
+                color: '#228B22'
+            }, // Platform 1
+            {
+                x: 450,
+                y: 200,
+                width: 150,
+                height: 20,
+                color: '#228B22'
+            }, // Platform 2
+            {
+                x: 100,
+                y: 150,
+                width: 150,
+                height: 20,
+                color: '#228B22'
+            }, // Platform 3
+            {
+                x: 550,
+                y: 100,
+                width: 150,
+                height: 20,
+                color: '#228B22'
+            } // Platform 4
+        ];
+
+        // Input handling
+        const keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            console.log('keydown:', e.code); // Debug log
+            keys[e.code] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+            console.log(e.code)
+        });
+
+        // Collision detection
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                rect1.x + rect1.width > rect2.x &&
+                rect1.y < rect2.y + rect2.height &&
+                rect1.y + rect1.height > rect2.y;
+        }
+
+        // Handle player movement
+        function handlePlayerMovement() {
+            // Horizontal movement
+            if (keys['ArrowLeft'] || keys['KeyA']) {
+                player.velocityX = -player.speed;
+            } else if (keys['ArrowRight'] || keys['KeyD']) {
+                player.velocityX = player.speed;
+            } else {
+                player.velocityX *= game.friction;
+            }
+
+            // Jumping
+            if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.onGround) {
+                player.velocityY = -player.jumpPower;
+                player.onGround = false;
+                console.log('jumping')
+            }
+
+            // Apply gravity
+            player.velocityY += game.gravity;
+
+            // Update position
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Keep player in bounds
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > game.width) player.x = game.width - player.width;
+        }
+
+        // Handle collisions
+        function handleCollisions() {
+            player.onGround = false;
+            const tolerance = 2; // Allow a small tolerance for landing
+            for (let platform of platforms) {
+                if (checkCollision(player, platform)) {
+                    // Determine collision direction
+                    const overlapX = Math.min(player.x + player.width - platform.x, platform.x + platform.width - player.x);
+                    const overlapY = Math.min(player.y + player.height - platform.y, platform.y + platform.height - player.y);
+
+                    if (overlapX < overlapY) {
+                        // Horizontal collision
+                        if (player.x < platform.x) {
+                            player.x = platform.x - player.width;
+                        } else {
+                            player.x = platform.x + platform.width;
+                        }
+                        player.velocityX = 0;
+                    } else {
+                        // Vertical collision
+                        if (player.y < platform.y) {
+                            // Landing on top of platform
+                            player.y = platform.y - player.height;
+                            player.velocityY = 0;
+                            // If very close to the platform, consider onGround
+                            if (Math.abs(player.y + player.height - platform.y) <= tolerance) {
+                                player.onGround = true;
+                            }
+                        } else {
+                            player.y = platform.y + platform.height;
+                            player.velocityY = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw functions
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            // Draw player eyes
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(player.x + 5, player.y + 5, 5, 5);
+            ctx.fillRect(player.x + 20, player.y + 5, 5, 5);
+
+            // Draw player pupils
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(player.x + 6, player.y + 6, 3, 3);
+            ctx.fillRect(player.x + 21, player.y + 6, 3, 3);
+        }
+
+        function drawPlatforms() {
+            for (let platform of platforms) {
+                ctx.fillStyle = platform.color;
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+
+                // Add some texture to platforms
+                ctx.fillStyle = '#32CD32';
+                ctx.fillRect(platform.x + 5, platform.y + 5, platform.width - 10, 5);
+            }
+        }
+
+        function drawBackground() {
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, game.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#B0E0E6');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, game.width, game.height);
+
+            // Draw some clouds
+            ctx.fillStyle = '#FFFFFF';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.arc(100, 80, 20, 0, Math.PI * 2);
+            ctx.arc(120, 80, 25, 0, Math.PI * 2);
+            ctx.arc(140, 80, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(600, 60, 15, 0, Math.PI * 2);
+            ctx.arc(615, 60, 20, 0, Math.PI * 2);
+            ctx.arc(630, 60, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Main game loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, game.width, game.height);
+
+            // Draw background
+            drawBackground();
+
+            // Update game logic
+            handlePlayerMovement();
+            handleCollisions();
+
+            // Draw game objects
+            drawPlatforms();
+            drawPlayer();
+
+            // Continue game loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        gameLoop();
+    </script>
+</body>
+
+</html>
